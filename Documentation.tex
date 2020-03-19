@@ -1,5 +1,5 @@
 \documentclass[a4paper, 11pt, titlepage]{article}
-\providecommand{\versionnumber}{0.2}
+\providecommand{\versionnumber}{0.2.1}
 
 \usepackage{amssymb}
 \usepackage{floatrow}
@@ -54,28 +54,46 @@
 \newpage
 
 \part{Основное описание проекта}
-  \begin{center}
-    \begin{tikzpicture}
-      \begin{umlpackage}{ARN}
-        \umlclass[]{AR Unit}{}{}
-        \umlclass[x=3]{POS Unit}{}{}
-        \umlclass[x=6]{GPS Unit}{}{}
-        \umlclass[x=1.5, y=-2]{POS + AR SubUnit}{}{}
-        \umlclass[x=3, y=-4]{POS + AR + GPS SubUnit}{}{}
+  \textbf{AR Navigation} проект демонстрирует возможности бесшовной навигации в дополненной реальности. \\
+  Проект создан в движке Unity3D.\\
+  Общую систему можно разделить на несколько подзадач:
+  \begin{itemize}
+    \item Интерфейс
+    \item Поиск пути
+    \item Позиционирование в пространстве
+  \end{itemize}
+  Интерфейс и поиск пути являютя достаточно тривиальными задачами, по этому остановимся на рассмотрение алгоритма 
+  позиционирования.
 
-        \umlinherit[]{AR Unit}{POS + AR SubUnit}
-        \umlinherit[]{POS Unit}{POS + AR SubUnit}
-        \umlinherit[]{POS + AR SubUnit}{POS + AR + GPS SubUnit}
-        \umlinherit[]{GPS Unit}{POS + AR + GPS SubUnit}
-      \end{umlpackage}
-    \end{tikzpicture}
-  \end{center}
+
+  %\begin{center}
+  %  \begin{tikzpicture}
+  %    \begin{umlpackage}{ARN}
+  %      \umlclass[]{AR Unit}{}{}
+  %      \umlclass[x=3]{POS Unit}{}{}
+  %      \umlclass[x=6]{GPS Unit}{}{}
+  %      \umlclass[x=1.5, y=-2]{POS + AR SubUnit}{}{}
+  %      \umlclass[x=3, y=-4]{POS + AR + GPS SubUnit}{}{}
+%
+  %      \umlinherit[]{AR Unit}{POS + AR SubUnit}
+  %      \umlinherit[]{POS Unit}{POS + AR SubUnit}
+  %      \umlinherit[]{POS + AR SubUnit}{POS + AR + GPS SubUnit}
+  %      \umlinherit[]{GPS Unit}{POS + AR + GPS SubUnit}
+  %    \end{umlpackage}
+  %  \end{tikzpicture}
+  %\end{center}
 
   \section{Система Event}
+  Вся внутренняя система разделена на модули, которые общаются между друг другом с помощью Event'ов.\\
+  Создаются \textit{static} классы в которых определены делегаты, инвенты и функции их вызывающие.
 
   \lstset{style=sharpc}
   \lstinputlisting{scripts/EventSystem.cs}
-    
+  После чего из любого другого скрипта можно подписываться на события и вызывать их.
+  \lstinputlisting{scripts/Subcsriber.cs}
+  Такой подход позволяет очень удобно отслеживать процессы происходящие в системе, а главное --- записывать их, и в 
+  последстиве многокротно воспроизводить.
+
 \part{Деление на модули}
   \section{Вступление}
     Работа приложения разделена на несколько функциональных модулей, некоторые из которых являютя независимыми, а остальные -- надстройками.\\

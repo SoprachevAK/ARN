@@ -1,2 +1,2 @@
 # ARN
-Докуменация к прокуту AR Navigation
+Докуменация к проекту AR Navigation
