@@ -1,0 +1,779 @@
+\documentclass[a4paper, 11pt, titlepage]{article}
+\providecommand{\versionnumber}{0.2}
+
+\usepackage{amssymb}
+\usepackage{floatrow}
+\usepackage{capt-of}
+\usepackage{multicol}
+\usepackage{wrapfig}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{enumerate}
+\usepackage{setspace}
+\usepackage[dvipsnames, table]{xcolor}
+\usepackage{tikz,ifthen,xstring,calc,pgfkeys,pgfopts}
+\usepackage{tikz-uml}
+\usepackage{listings}
+\usetikzlibrary{calc}
+
+\usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm,bindingoffset=0cm]{geometry}
+%Russian-specific packages
+%--------------------------------------
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian, english]{babel}
+
+%--------------------------------------
+\newcommand{\RomanNumeralCaps}[1]
+    {\MakeUppercase{\romannumeral #1}}
+
+\newcommand{\subsubsubsection}[1]{\paragraph{#1}\mbox{}\\}
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{4}
+
+\title{Документация по проекту \\ \textbf{AR Navigation}}
+\author{Сопрачёв Андрей}
+\date{Версия: \versionnumber \\ \today}
+
+\lstdefinestyle{sharpc}{
+  language=[Sharp]C,
+  frame=lr,
+  rulecolor=\color{blue!80!black}
+}
+
+
+\begin{document}
+\selectlanguage{russian}
+\sffamily
+\maketitle
+
+\tableofcontents
+\newpage
+
+\part{Основное описание проекта}
+  \begin{center}
+    \begin{tikzpicture}
+      \begin{umlpackage}{ARN}
+        \umlclass[]{AR Unit}{}{}
+        \umlclass[x=3]{POS Unit}{}{}
+        \umlclass[x=6]{GPS Unit}{}{}
+        \umlclass[x=1.5, y=-2]{POS + AR SubUnit}{}{}
+        \umlclass[x=3, y=-4]{POS + AR + GPS SubUnit}{}{}
+
+        \umlinherit[]{AR Unit}{POS + AR SubUnit}
+        \umlinherit[]{POS Unit}{POS + AR SubUnit}
+        \umlinherit[]{POS + AR SubUnit}{POS + AR + GPS SubUnit}
+        \umlinherit[]{GPS Unit}{POS + AR + GPS SubUnit}
+      \end{umlpackage}
+    \end{tikzpicture}
+  \end{center}
+
+  \section{Система Event}
+
+  \lstset{style=sharpc}
+  \lstinputlisting{scripts/EventSystem.cs}
+    
+\part{Деление на модули}
+  \section{Вступление}
+    Работа приложения разделена на несколько функциональных модулей, некоторые из которых являютя независимыми, а остальные -- надстройками.\\
+    Независимые:
+    \begin{itemize}
+    \item AR Unit --- модуль дополненной реальности, прослойка между нативными плагинами и общей системы
+    \item GPS Unit --- модуль позиционирования по GPS
+    \item Pos Unit --- модуль решающий задачу перевода координат из локальной в глобальную системы координат
+    \end{itemize}
+    Надстройки:
+    \begin{itemize}
+    \item Pos + AR SubUnit --- надстройка над \textbf{Pos Unit} и \textbf{AR Unit} для проброски ивентов между ними
+    \item Pos + GPS + AR SubUnit --- надстройка над \textbf{Pos + AR SubUnit} и \textbf{GPS Unit} для проброски ивентов между ними
+    \end{itemize}
+
+    \begin{center}
+    \begin{tikzpicture}
+      \begin{umlpackage}{ARN}
+
+        \begin{umlpackage}{AR+POS+GPS SubUnit}
+          \begin{umlpackage}{AR+POS SubUnit}
+            \begin{umlpackage}{Pos Unit}
+              \umlsimpleclass[x=1cm, width=20ex]{POS Interface}{}
+              \umlsimpleclass[x=1cm, y=-1.5, width=20ex]{POS Controller}{}
+              \umlinherit[]{POS Interface}{POS Controller}
+            \end{umlpackage}
+
+            \begin{umlpackage}{AR Unit}
+              \umlsimpleclass[x=13cm, width=20ex]{AR Interface}{}
+              \umlsimpleclass[x=13cm, y=-1.5, width=20ex]{AR Starter}{}
+              \umlinherit[]{AR Starter}{AR Interface}
+            \end{umlpackage}
+
+            \umlsimpleclass[x=7cm, width=30ex]{AREstimateGenerator}{}
+            \umlsimpleclass[x=7cm, y=-1, width=30ex]{ARToPositionTranslator}{}
+
+            \umlinherit[]{AREstimateGenerator}{POS Interface}
+            \umlinherit[geometry=-|-]{ARToPositionTranslator}{POS Interface}
+          \end{umlpackage}
+          \begin{umlpackage}{GPS Unit}
+            \umlsimpleclass[x=13cm, y=-4, width=20ex]{GPS Interface}{}
+            \umlsimpleclass[x=13cm, y=-5.5, width=20ex]{GPS Tracker}{}
+            \umlinherit[]{GPS Tracker}{GPS Interface}
+          \end{umlpackage}
+
+          \umlsimpleclass[x=7cm, y=-3, width=30ex]{GPSEstimateGenerator}{}
+          \umlinherit[geometry=-|-]{GPSEstimateGenerator}{POS Interface}
+        \end{umlpackage}
+
+        \umlinherit[geometry=-|-]{AR Interface}{AREstimateGenerator}
+        \umlinherit[geometry=-|-]{AR Interface}{ARToPositionTranslator}
+        \umlinherit[geometry=-|-]{GPS Interface}{GPSEstimateGenerator}
+      \end{umlpackage}
+    \end{tikzpicture}
+    \end{center}
+
+  \section{Независимые модули}
+    \subsection{AR Unit}
+      Задача AR Unit --- предоставить приложению уровень абстракции над ARKit и ARCore плагинами Unity. \\
+      Является независимым модулем. \\
+      Модуль реализован на системе Events и предоставляет в использование \textbf{ARInterface} \\
+      Для работы модуля на сцене необходим префаб \textbf{ARStarter} с дочерними \textbf{ARKitTracker} и 
+      \textbf{ARCoreTracker}. \\
+      При запуске сцены \textbf{ARStarter} активирует "Tracker" соответствующий текущей платформе (ios --- ARKitTracker, android --- ARCoreTracker).\\
+      Tracker выполняет функцию проброски api между нативным Unity Plugin'ом и ARInterface. \\
+      На объекте Tracker выполняются настройки для запуска AR сессии конкретной платформы.
+
+      \begin{center}
+        \begin{tikzpicture}
+          \begin{umlpackage}{AR Unit}
+            \umlclass[]{AR Interface}{}{}{}
+            \umlsimpleclass[x=8cm]{AR Starter}{}
+            \umlsimpleclass[x=6cm, y=-2]{ARKitTracker}{}
+            \umlsimpleclass[x=10cm, y=-2]{ARCoreTracker}{}
+            \umlsimpleclass[x=6cm, y=-4]{ARKit Native}{}
+            \umlsimpleclass[x=10cm, y=-4]{ARCore Native}{}
+
+            \begin{umlpackage}{Moover}
+              \umlsimpleclass[x=-3, y=-3, width=25ex]{ARCamMoover}{}
+              \umlsimpleclass[x=-3, y=-4, width=25ex]{ARImageMoover}{}
+            \end{umlpackage}
+            \umlsimpleclass[x=1.5, y=-3]{FloorLevel}{}
+          \end{umlpackage}
+
+          \umlinherit[geometry=|-|]{AR Interface}{Moover}
+          \umlinherit[geometry=|-|]{AR Interface}{FloorLevel}
+          \umlinherit[]{AR Starter}{AR Interface}
+          \umlinherit[]{ARKitTracker}{AR Starter}
+          \umlinherit[]{ARCoreTracker}{AR Starter}
+          \umlinherit[]{ARKit Native}{ARKitTracker}
+          \umlinherit[]{ARCore Native}{ARCoreTracker}
+        \end{tikzpicture}
+      \end{center}
+
+      \subsubsection{Некоторые примитивы}
+        \begin{center}
+          \begin{tikzpicture}
+            \umlclass[]{ARTransform}{position : Vector3\\rotation : Quaternion}{}
+            \umlclass[x=5, y=-0.2]{ARImage}{name : String\\position : Vector3\\rotation : Quaternion}{}
+            \umlclass[x=10, y=-0.4]{ARPlane}{identifier : String\\position : Vector3\\rotation : Quaternion\\extent : Vector3}{}
+          \end{tikzpicture}\\[0.4cm]
+
+          \begin{tikzpicture}
+            \umlclass[]{ARStatus}{Stopped\\Initializing\\Running\\Unsupported\\Failed\\}{}
+            \umlclass[x=5, y=0.2]{ARTrackingState}{
+              ARTrackingStateUnSupported\\
+              ARTrackingStateNotAvailable\\
+              ARTrackingStateLimited\\
+              ARTrackingStateNormal
+            }{}
+          \end{tikzpicture}
+        \end{center}
+
+        
+
+      \subsubsection{ARInterface}
+        Разделён на две логические части --- делегаты состояний и функции их вызывающие. \\
+        Делегаты:
+        \begin{itemize}
+          \item OnARTransformUpdate(ARTransform) --- обновление координаты устройства в пространстве
+          \item OnARCameraProjectionMatrixUpdate(Matrix4x4) --- обновление параметров камеры (fov etc)
+          \item OnImageAdd(ARImage) --- первое появление AR метки в сцене 
+          \item OnImageUpdate(ARImage) --- обновление положения существующей AR метки
+          \item OnImageRemoved(ARImage) --- удаление AR метки со сцены ($\neq$ выход за пределы экрана, обычно вызывается в ARKit при остановке сцены)
+          \item OnPlaneAdd(ARPlane) --- первое появление ARPlane в сцене 
+          \item OnPlaneUpdate(ARPlane) --- обновление положения существующей ARPlane
+          \item OnPlaneRemoved(ARPlane) --- обновление положения существующей ARPlane
+          \item OnStatusChange(ARStatus) --- изменение статуса AR сцены 
+          \item OnTrackingStateChange(ARTrackingState) --- изменение статуса позиционированя
+          \item OnTrackingStateReasonChange(ARTrackingStateReason) --- информация о текущем статусе позиционирования (например: недостаточно освещения)
+          \item OnStartSession() --- запксе сессии
+          \item OnReStartSession() --- перезапуск сессии на лету 
+          \item OnStopSession() --- остановка сессии
+          \item OnSessionFaild() --- критическая ошибка в сесии приводящая к её остановке (например: запрещён доступ к камере)
+          \item OnChangePaneMode(bool) --- изменение состояния трекинга плоскостей 
+        \end{itemize}
+
+      \subsubsection{Эмуляция AR сессии}
+        AR Unit предоствыляет объекты для полной эмуляции всех событий AR сесии.\\
+        Все необходимые файлы находятся в Assets/Units/ARUnit/Fake все дальнейшие пути указаны относительно этой директории.\\
+        Для полной эмуляции перетащить в сцену Prefabs/FAKE\_AR. Его дочерние объекты определяют поведение симуляции.
+        \begin{itemize}
+          \item FakeARMain --- отвечает за эмуляуию статусоы сесии
+          \item Camera position AR generator --- отвечает за эмуляуию положения камеры в пространстве
+          \item FakeImage --- отвечает за эмуляцию трекинга картинки
+        \end{itemize} 
+
+      \paragraph{AREventRecorder}
+        Объект позволяющий записать и сохранить в файл все события происходящие во время AR сесии, а после 
+        этот файл воспроизводить.
+        Для использования добавить на сцену Prefabs/SessionRecorder.
+
+      \subsubsection{Алгоритм создания AR сцены в Unity}
+        Все необходимые файлы находятся в Assets/Units/ARUnit все дальнейшие пути указаны относительно этой директории.
+        \begin{enumerate}
+          \item Создание сцены:
+            \begin{enumerate}
+              \item Перетащить на сцену префаб /Prefabs/ARUnit
+              \item При необходимости отключить объект ARFloorCalculate отвечающий за рассчёт уровня пола
+              \item На основную камеру добавить скрипт ARCamMoover и указать эту камеру в настройках ARKitTracker и ARCoreTracker
+            \end{enumerate}
+            \item Настройка:
+              \begin{enumerate}
+                \item IOS
+                \begin{enumerate}
+                  \item Создать в проекте UnityARKitPlugin/ARReferensImagesSet и перетащить его на ARKitTracker в соотвтетсвующие поле
+                  \item Создать в проекте UnityARKitPlugin/ARReferensImage для каждой желаемой метки, и указать ей текстуру и физический размер (ширину). \\
+                    Заполнить ими созданный ReferensImagesSet.
+                  \item На объект трекинга добавить скрипт ARImageMover и в его имя указать имя метки
+                \end{enumerate}
+                \item Android
+                  \begin{enumerate}
+                  \item Создать в проекте GoogleARCore/SessionConfig и перетащить его на ARCoreTracker в соотвтетсвующие поле
+                  \item В проекте выделить необходимые метки и создать GoogleARCore/AugmentedDataBase. \\
+                    Перетащить получившийся объект на созданный SessionConfig.
+                  \item На объект трекинга добавить скрипт ARImageMover и в его имя указать имя метки
+                \end{enumerate}
+              \end{enumerate}
+            \item Запуск \\
+            Вызвать функцию ARInterface.StartARSession() из UI или другого скрипта. После инициализации ARInterface.ARStatus 
+            перейдёт в состояние Running и сессия будет успешно запущена.
+            \item Остановка \\
+            Для остановки сессии вызвать функцию ARInterface.StopARSession()
+        \end{enumerate}
+      
+      \subsubsection{Пример AR сцены}
+        Пример сцены расположен в Assets/Units/ARUnit/Example/FullARUnitExample в нём реализованы все возможности ARUnit
+
+    \subsection{GPS Unit}
+      Задача GPS Unit предоставить уровень абстракции над location servise.\\
+      Модуль реализован на системе Events и предоставляет в использование GPSInterface.\\
+      Для работы модуля на сцене необходим префаб GPSTracker.
+    \subsubsection{GPSInterface}
+      Разделён на две логические части --- делегаты состояний и функции их вызывающие. \\
+      Делегаты:
+      \begin{itemize}
+        \item OnStartGPS(desiredAccuracyInMeters, updateDistanceInMeters) --- запусе GPS трекинга
+        с заданными параметрами погрешности
+        \item OnStopGPS() --- остановка GPS трекинга
+        \item OnGPSStatusUpdate(GPSServiceStatus) --- событие обновления GPS статуса 
+        \item OnGPSUpdate(GPSInfo) --- событие обновления координаты 
+        \item OnStartCompass() --- запусе компаса
+        \item OnStopCompass() --- остановка компаса
+        \item OnGPSCompassUpdate(GPSCompassInfo) --- событие обновления азимута
+      \end{itemize}
+
+    \subsubsection{Алгоритм создания GPS сцены в Unity}
+      Все необходимые файлы находятся в Assets/Units/GPSUnit все дальнейшие пути указаны относительно этой директории.
+      \begin{enumerate}
+        \item Создание сцены \\
+        Перетащить на сцену префаб /Prefabs/GPSTracker
+        \item Запсук \\
+        Вызвать функцию GPSInterface.StartGPS() для отслеживания позиционирования и GPSInterface.OnStartCompass() для отслеживания
+        азимута
+        \item Отслеживание \\
+        Подписаться на события GPSInterface.OnGPSUpdate и GPSInterface.OnGPSCompassUpdate
+        \item Выключение \\
+        Вызвать функуию GPSInterface.StopGPS() и GPSInterface.StopCompass()
+      \end{enumerate}
+
+    \subsubsection{Пример GPS сцены}
+      Пример сцены расположен в Assets/Units/GPSUnit/Example/FullGPSUnitExample в нём реализованы все возможности GPSUnit
+
+    \subsection{POS Unit}
+      \subsubsection{Задача позиционирования}
+        Зная координату $P$ относительно запуска приложения, вычисльить $P'$ относительно известной системы координат. \\
+        ARUnit в любой момент времени позволяет получить координату в системе координат связанной с точкой запуска трекинга. 
+        При этом начало координат $O$ этой системы находится в точке запуска, ось $Y$ направлена против гравитации, ось $Z$ --- по 
+        проекции нормали экрана устройства на плоскость перпендикулярную $Y$ в момент запуска трекинга. Назовём эту систему --- \textbf{локальная система координат}. \\
+        Заданная система координат --- свзязанна с физической картой, где центр $O'$ определяется разработчиком, ось $Y'$ по нормали к карте, оси $North$ и $East$ направленны мо
+        соответстующим стороноам света. Назовём её \textbf{глобальная система координат}.
+
+        \begin{figure}[H]
+          \centering
+          \begin{floatrow}
+            \ffigbox[]{\caption{Локальнся система координат}}{
+              \begin{tikzpicture}[scale=0.3]
+                \draw[fill=black] (0,0,0) node[anchor=north] {$O$};
+                \draw[color=black!10!green, thick,->] (0,0,0) -- (0,10,0) node[anchor=east] {$Y$};
+                \draw[color=blue, thick, ->] (0,0,0) -- (10,0,0) node[anchor=south] {$Z$};
+                \draw[color=red, thick, ->] (0,0,0) -- (0,0,10) node[anchor=east] {$X$};
+                \coordinate (Point) at (6,4,6);
+                \draw[fill=black] (Point) node[anchor=south] {$\vec{P}$};
+                \draw[color=black, thick, ->] (0,0,0) -- (Point);
+              \end{tikzpicture}
+            }
+            \ffigbox[]{\caption{Глобальная система координат}}{
+              \begin{tikzpicture}[scale=0.5]
+                \draw[fill=green!20] (0,0,0) -- (10,0,0) -- (10,0,10) -- (0,0,10) -- (0,0,0);
+                \draw[fill=black] (0,0,0) node[anchor=north] {$O'$};
+                \draw[color=black!10!green, thick,->] (0,0,0) -- (0,5,0) node[anchor=east] {$Y'$};
+                \draw[color=blue, thick, ->] (0,0,0) -- (5,0,0) node[anchor=south] {$North$};
+                \draw[color=red, thick, ->] (0,0,0) -- (0,0,5) node[anchor=east] {$East$};
+                \coordinate (Point) at (4,0,4);
+                \draw[fill=black] (Point) node[anchor=west] {$\vec{P'}$};
+                \draw[color=black, thick, ->] (0,0,0) -- (Point);
+
+              \end{tikzpicture}
+            }
+          \end{floatrow}
+        \end{figure}
+
+        Соноправленность осей $Y$ и $Y'$ позволяет свести задачу к двумерному случаю. 
+
+        \begin{figure}[H]
+          \centering
+          \begin{floatrow}
+            \ffigbox[]{\caption{Локальнся система координат 2D}}{
+              \begin{tikzpicture}[scale=0.3]
+                \draw[fill=black] (0,0) node[anchor=north] {$O$};
+                \draw[color=blue, thick, ->] (0,0) -- (0,10) node[anchor=east] {$Z$};
+                \draw[color=red, thick, ->] (0,0) -- (10,0) node[anchor=south] {$X$};
+                \coordinate (Point) at (6,4);
+                \draw[fill=black] (Point) node[anchor=south] {$\vec{P}$};
+                \draw[color=black, thick, ->] (0,0) -- (Point);
+              \end{tikzpicture}
+            }
+            \ffigbox[]{\caption{Глобальная система координат 2D}}{
+              \begin{tikzpicture}[scale=0.3]
+                \draw[fill=green!20] (0,0) -- (10,0) -- (10,10) -- (0,10) -- (0,0);
+                \draw[fill=black] (0,0) node[anchor=north] {$O'$};
+                \draw[color=red, thick,->] (0,0) -- (8,0) node[anchor=south] {$East$};
+                \draw[color=blue, thick,->] (0,0) -- (0,8) node[anchor=east] {$North$};
+                \coordinate (Point) at (6,4);
+                \draw[fill=black] (Point) node[anchor=south] {$\vec{P'}$};
+                \draw[color=black, thick, ->] (0,0) -- (Point);
+              \end{tikzpicture}
+            }
+          \end{floatrow}
+        \end{figure}
+
+        Переобозначим оси: $North \rightarrow Z'$ и $East \rightarrow X'$. И разделим задачу на 2 части:
+        \begin{enumerate}
+          \item Ось $Z$ сонаправленна с $Z'$, но центр $O$ не совпадает с $O'$, задача найти векор смещения $\vec{d}$
+          \item Центр $O$ совпадает с $O'$, но напавление $Z$ не совпадает с $Z'$, задача -- найти угол $\alpha$ между этими осями
+        \end{enumerate}
+
+        Для однозначного решения этой задачи исходных данных недостаточно. Необходимо знать координаты одной и той же точки в обоих системах координат.
+        Введём объект \textbf{Estimate} \\
+        
+        \begin{center}
+            \begin{tikzpicture}
+              \umlclass[]{Estimate}{localPos : Vector3\\globalPos : Vector3\\correctAngle : float\\angleAcc : float\\posAcc: float}{}
+            \end{tikzpicture}
+        \end{center}
+
+        \begin{itemize}
+            \item localPos --- координата точки в локальной системе координат
+            \item globalPos --- коорбината этой же точки в глобальной системе коордиант
+            \item correctAngle --- предполагаемый угол коррекции между для приведения одной системы координат к другй (в градусах) 
+            \item angleAcc --- погрешность угла коррекции (в градусах)
+            \item posAcc --- погрешность определения соответствюущих точек 
+        \end{itemize}
+
+        Получть \textbf{Estimate} монжно разными путями, например перевести показания GPS в глобальную систмеу коордиан и записать в \textbf{globalPos},
+        а текущую коорбинату ARUnit записат в \textbf{localPos}. 
+
+        
+        \subsubsection{Вычисление вектора линейного сдвига}
+          Пусть у нас есть один Estimate, обозначим его $localPos$ точкой $E$, а $globalPos$ точкой $E'$. И решим \textbf{первую} задачу принебрегая погрешностями измерения.
+          При этом по условию задачи оси систем координат соноправленны $Z \upuparrows Z'$ и $X \upuparrows X'$, а центры различны $O \neq O'$.
+          \begin{figure}[H]
+            \centering
+            \begin{tikzpicture}[scale=0.6]
+              \draw[fill=BlueViolet] (0,0) node[BlueViolet, anchor=north] {$O$};
+              \draw[color=BlueViolet, thick, ->] (0,0) -- (10,0) node[anchor=south] {$X$};
+              \draw[color=BlueViolet, thick, ->] (0,0) -- (0,10) node[anchor=east] {$Z$};
+              \coordinate (Point) at (2,3);
+              \coordinate (Delta) at (5,3);
+              \draw[fill=BlueViolet](Point) circle(0.1) node[BlueViolet, anchor=south] {$E$};
+
+
+              \begin{scope}[shift={(Delta)}]
+                \draw[fill=black] (0,0) node[anchor=north] {$O'$};
+                \draw[color=black, thick, ->] (0,0) -- (6,0) node[anchor=south] {$X'$};
+                \draw[color=black, thick, ->] (0,0) -- (0,6) node[anchor=east] {$Z'$};
+                \coordinate (Point1) at (2,3);
+                \draw[fill=black] (Point1) circle(0.1) node[anchor=south] {$E'$};
+              \end{scope} 
+
+              \begin{scope}[shift={(0,0)}]
+                \draw[color=red, thick, ->] ($(Point) + (Delta)$) -- (Point)  node[midway,sloped,above] {$\vec{d}$};
+                \draw[color=red, thick, ->] (Delta) -- (0,0)  node[midway,sloped,above] {$\vec{d}$};
+              \end{scope}
+
+
+            \end{tikzpicture}
+            \caption{Определение вектора линейного сдвига $\vec{d}$}
+          \end{figure}
+
+          Вычитая из координат точки $E$, координаты $E'$ получим векор $\vec{d}$ который и будет искомым сдвигом между $O$ и $O'$.
+        
+        \subsubsection{Вычисление угла между системами}
+          Пусть у нас есть один Estimate, обозначим его $localPos$ точкой $E$, а $globalPos$ точкой $E'$. И решим \textbf{вторую} задачу принебрегая погрешностями измерения.
+          При этому по условию задачи центры систем координат совпадают $O = O'$, а оси --- нет.\\
+          То есть одна система повернута относительно другой на угол $\boldsymbol{\alpha}$ его и надо найти.
+          \begin{figure}[H]
+            \centering
+            \begin{tikzpicture}[scale=0.6]
+              \filldraw[fill=green!20,draw=green!50!black] (0,0) -- (0,3) arc (90:115:3) -- cycle node[green!50!black] at (102.5:3.5) {$\alpha$};
+            
+              \draw[fill=blue] (0,0) node[blue, anchor=north] {$O$};
+              \draw[color=blue, thick, ->] (0,0) -- (10,0) node[anchor=south] {$X$};
+              \draw[color=blue, thick, ->] (0,0) -- (0,10) node[anchor=east] {$Z$};
+              \coordinate (Point) at (4,3);
+              \draw[fill=blue](Point) circle(0.1) node[blue, anchor=south] {$\vec{E}$};
+              \draw[color=blue, dashed] (0,3) -- (Point);
+              \draw[color=blue, dashed] (4,0) -- (Point);
+            
+              \begin{scope}[rotate=25]
+                \draw[color=black, thick, ->] (0,0) -- (10,0) node[anchor=south] {$X'$};
+                \draw[color=black, thick, ->] (0,0) -- (0,10) node[anchor=east] {$Z'$};
+                \coordinate (Point1) at (4,3);
+                \draw[fill=black] (Point1) circle(0.1) node[anchor=south] {$\vec{E'}$};
+                \draw[color=black, dashed] (0,3) -- (Point1);
+                \draw[color=black, dashed] (4,0) -- (Point1);
+              \end{scope}
+            
+              \begin{scope}[rotate=0]
+                \filldraw[fill=green!20,draw=green!50!black, rotate=25] (0,0) -- ($(0,0)!3cm!(Point)$) arc (11.87:36.87:3cm) -- cycle node[green!50!black] at (25:3.5) {$\alpha_1$};
+                \draw[color=black, thick] (0,0) -- (Point1);
+                \draw[color=blue, thick] (0,0) -- (Point);
+              \end{scope} 
+            \end{tikzpicture}
+            \caption{Определение угла поворота $\alpha$}
+          \end{figure}
+          
+          Посторим вектора $\vec{OE}$ и $\vec{OE'}$, и угол $\widehat{(\vec{OE}, \vec{OE'})} = \alpha_1 = \alpha$ --- искомый угол.
+
+            
+        \subsubsection{Решение задачи позиционирования с учётом погрешности}
+          Погрешность может возникнуть как в исходных данных, так и накопиться со временем.
+          \begin{itemize}
+             \item Погрешность исходных данных появляется при неточности соответствия точки в локальных и глобальных координатах,
+             например в случае с GPS, точной координате localPos, соответствует координата GPS с погрешностью, то есть localPos
+             может быть удалена от координаты GPS на некую велечину погрешности $\varepsilon$ 
+             \begin{figure}[H]
+              \centering
+              \begin{tikzpicture}[scale=0.8]
+                \draw[color=blue,fill=blue!100!green!47!white!20] (0,0) circle (2);
+                \draw[color=red, line width = 1, <->] (0:0.08) -- (2,0) node[pos=0.5, anchor=south] {$\boldsymbol{\varepsilon}$};
+                \filldraw[color=blue] (0,0) circle(0.08) node[anchor=south] {$GPS$};
+                \filldraw[color=orange] (-140:1.5) circle(0.08) node[anchor=south] {$localPos$};
+
+              \end{tikzpicture}
+              \caption{Погрешность исходных данных}
+             \end{figure}
+             \item Накопительная погрешность. Для определения координаты в пространстве ARUnit интегрирует показания акселерометра
+             в этом расчёте появляется погрешность зависящая от пройденного расстояния и пользовательского устройства. 
+             Например на iPhone10 такая погрешность составляет 5 см на 1 метр, что означает, что с каждым пройденным метом 
+             координата полученная из ARUnit "ошибается" на 5 см.
+             \begin{figure}[H]
+              \centering
+              \begin{tikzpicture}[scale=1]
+                \begin{scope}[shift={(-4.5,-1)}]   
+                  \coordinate (Point) at (45:3);
+                  \draw[color=green,fill=green!10] (Point) circle (1.2);
+                  \draw[color=orange, line width = 1, ->] (0,0) -- (45:2.92);
+                  \filldraw[color=orange] (Point) circle(0.08) node[anchor=south] {$localPos$};
+                  \filldraw[color=black] (0,0) circle(0.08) node[anchor=south] {$O$};
+                \end{scope} 
+                \begin{scope}[shift={(0,0)}]   
+                  \draw[] (0, 0) node[] {\Huge $\longrightarrow $};
+                \end{scope}   
+                \begin{scope}[shift={(4.5,1)}]   
+                  \coordinate (Point) at (-135:3);
+                  \draw[color=green,fill=green!10] (Point) circle (1.2);
+                  \draw[color=orange, line width = 1, ->] (0,0) -- (-135:2.92);
+                  \filldraw[color=orange] (0, 0) circle(0.08) node[anchor=south] {$localPos$};
+                  \filldraw[color=black] (Point) circle(0.08) node[anchor=south] {$O$};
+                \end{scope}   
+              \end{tikzpicture}
+              \caption{Накопительная погрешность. Относительный переход}
+             \end{figure}
+          \end{itemize}
+          Благодаря относительности систем координат, увеличение погрешности $localPos$ относительно центра можно 
+          интерпритировать как увеличение погрешности центра относительно координаты. А значит можно свести обе погрешности к одному.
+          Для этого следует увеличивать погрешность всех ранее полученных Estimat'ов с изменением $localPos$
+
+          \begin{figure}[H]
+            \centering
+            \begin{tikzpicture}[scale=1]
+              \coordinate (Point1) at (0,0);
+              \coordinate (Point2) at (3,1.4);
+              \coordinate (Point3) at (6,0.5);
+              \coordinate (Point4) at (9,1);
+              \coordinate (Point5) at (11,0.5);
+
+              \draw[color=green,fill=green!10] (Point1) circle (1.7);
+              \draw[color=green,fill=green!10] (Point2) circle (1.3);
+              \draw[color=green,fill=green!10] (Point3) circle (0.8);
+              \draw[color=green,fill=green!10] (Point4) circle (0.55);
+
+              \draw[color=blue,fill=blue!100!green!47!white!20] (Point1) circle (0.5);
+              \draw[color=blue,fill=blue!100!green!47!white!20] (Point2) circle (0.5);
+              \draw[color=blue,fill=blue!100!green!47!white!20] (Point3) circle (0.5);
+              \draw[color=blue,fill=blue!100!green!47!white!20] (Point4) circle (0.5);
+
+              \filldraw[] (Point1) circle (0.08);
+              \filldraw[] (Point2) circle (0.08);
+              \filldraw[] (Point3) circle (0.08);
+              \filldraw[] (Point4) circle (0.08);
+              \draw[line width=1,->] (Point1) -- (Point2) -- (Point3) -- (Point4) -- (Point5);
+              \draw[] (Point5) node[anchor=north] {ARUnit pos};
+            \end{tikzpicture}
+            \caption{Увеличение погрешности с изменением $localPos$}
+          \end{figure}
+
+          За эту суммарную погрешность отвечает поле $posAcc$ объекта $Estimate$.
+
+        \subsubsection{Вычисление вектора линейного сдвига с учётом погрешности}
+          Вектор $\vec{d}$ --- разница между localPos и globalPos отдельно взятого Estimate'a, назовём этот estimate --- $pivot$.\\
+          На вход поступает поток Estimat'ов, а значит для достижения максимальной точности достаточно выбрать Estimate с минимальной 
+          горизонтальной погрешностью (posAcc). Однако, при приближение к пороговому показателю точности Estimate (например для GPS --- минимально
+          возможная погрешность в текущих условиях) и пересчёте $\vec{d}$ по минимальной погрещности, в позиционирование могут возникать скачки,
+          по этому в целях стабильности целесообразно, при малых погрешностях не производить поиск нового pivot, пока localPos последнего
+          Estimate находится в радиусе погрешности его globalPos.
+
+          \begin{figure}[H]
+            \centering
+            \begin{tikzpicture}[scale=1]
+              \coordinate (Point0) at (-3,0.6);
+              \coordinate (Point1) at (0,0);
+              \coordinate (Point2) at (3,1.4);
+              \coordinate (Point3) at (6,0.5);
+              \coordinate (Point4) at (9,1);
+              \coordinate (Point5) at (11,0.5);
+              \coordinate (Delta) at (1.5,0.8);
+
+              \draw[color=blue,fill=blue!100!green!47!white!20] ($(Point1) + (0.1,1)$) circle (1.2);
+              \draw[color=purple,fill=purple!100!white!20] ($(Point2)$) circle (0.5);
+              \draw[color=black] ($(Point2) + (0,1.05)$) node[anchor=north] {Old pivot};
+              \draw[color=blue,fill=blue!100!green!47!white!20] ($(Point3) + (-0.3,0.2)$) circle (0.8);
+              \draw[color=blue,fill=blue!100!green!47!white!20] ($(Point4) + (Delta)$) circle (0.7);
+              \draw[color=black] ($(Point4) + (Delta) + (0,1.25)$) node[anchor=north] {New pivot};
+
+              \filldraw[] ($(Point4) + (Delta)$) circle (0.04);
+
+              \draw[color=red,dashed,line width=1,->] (Point4) -- ($(Point4) + (Delta)$);
+
+              \filldraw[] (Point1) circle (0.08);
+              \filldraw[] (Point2) circle (0.08);
+              \filldraw[] (Point3) circle (0.08);
+              \filldraw[] (Point4) circle (0.08);
+              \draw[line width=1,->] (Point0) -- (Point1) -- (Point2) -- (Point3) -- (Point4);
+              \draw[line width=1,->] ($(Point4) + (Delta)$) -- ($(Point5) + (Delta)$);
+              \draw[] ($(Point5) + (Delta)$) node[anchor=north] {ARUnit pos};
+            \end{tikzpicture}
+            \caption{Определение $pivot$ по потоку $Estimate$}
+          \end{figure}
+
+        \subsubsection{Вычисление угла между системами с учётом погрешности}
+          Угол $\alpha$ межу системами вычисляется по координатам двум Estimate'ам. Однако эти координаты определены с известной погрешностью, 
+          а значит можно определить и погрешность $\Delta \alpha$. 
+
+          \begin{figure}[H]
+            \centering
+            \begin{tikzpicture}[scale=0.8]
+              \coordinate (Point1) at (0,0);
+              \coordinate (Point2) at (7,0);
+              \draw[color=green,fill=green!10] (Point1) circle (2);
+              \draw[color=green,fill=green!10] (Point2) circle (1);
+              \filldraw[] (Point1) circle(0.08) node[anchor=north] {$E_1$};
+              \filldraw[] ($(Point1) + (0,2)$) circle(0.08) node[anchor=south] {$E'_1$};
+              \filldraw[] (Point2) circle(0.08) node[anchor=south] {$E_2$};
+              \filldraw[] ($(Point2) + (0,-1)$) circle(0.08) node[anchor=north] {$E'_2$};
+              \filldraw[fill=green!20,draw=green!50!black] (4.67,0) -- (3.67,0) arc (180:156.79:1) -- cycle node[green!50!black] at ($(4.67,0) + (168.395:1.8)$) {$\Delta \alpha$};
+
+              \filldraw[] (4.67,0) circle(0.08) node[anchor=north] {$M$};
+
+              \draw[] ($(Point1) + (0,2)$) -- ($(Point2) + (0,-1)$);
+              \draw[] (Point1) -- (Point2);
+              \draw[] ($(Point1) + (0,2)$) -- (Point1) node[pos=0.5,anchor=east] {$l_1$};
+              \draw[] (Point2) -- ($(Point2) + (0,-1)$)  node[pos=0.5,anchor=west] {$l_2$};
+
+
+            \end{tikzpicture}
+            \caption{Определение погрешности $\Delta \alpha$}
+          \end{figure}
+
+          Имеем два Estimate'a с центрами в точках $E_1$ и $E_2$ и погрещностями $l_1$ и $l_2$ соответственно.\\
+          Рассмотим худший вариант, когда погрешность максимальна, и реальная позиция максимально отдолены от её измерения и находятся в точках $E'_1$ и $E'_2$.
+          Такое диаметрально противоположные расположение даёт максимальный угол отклонения $E'_1E'_2$ от $E_1E_2$, а значит и максимальную погрешность при рассчёте $\alpha$.\\
+          \begin{gather*}
+            E_1E_2 \cap E'_1E'_2 = M\\
+            \angle E'_1ME_1 = \Delta\alpha\\
+            \tan{\Delta\alpha} = \frac{l_1+l_2}{2|\vec{E_1E_2}|}\\
+            \Delta\alpha = \arctan{\frac{l_1+l_2}{2|\vec{E_1E_2}|}}
+          \end{gather*}
+          
+          Далее мы имеет два возможных варианта:
+          \begin{itemize}
+            \item Перебор всех возможных пар Estimat'ов и определение пары с минимальной погрешностью $\Delta\alpha$ и рассчёт угла $\alpha$ по этой паре
+            \item Перебор всех возможный пар Estimat'ов, и рассчёт угла $\alpha$:
+            \begin{itemize}
+              \item по среднему значению между $n$ лучших пар 
+              \item по среднему значению между всеми парами с весом $p = f(\Delta\alpha)$. Например $p = \frac{1}{\Delta\alpha}$
+            \end{itemize}
+          \end{itemize}
+
+          Практические эксперименты показали, что оптимальным является определение $\alpha$ по одной лучшей паре.
+
+        \subsubsection{Общий алгоритм позиционирования}
+          Опираясь на вышеперечисленные пункты можно сформулировать общий алгоритм реализованный в POS Controller.\\
+          Запуск алгоритма производится при каждом получение нового Estimate.
+          \begin{enumerate}
+            \item Получаем новый Estimate и сохраняем его в массив ранее пришедших Estimat'ов
+            \item При необходимости обновляем pivot
+              \begin{itemize}
+                \item по минимальной погрешности, если погрешность велика
+                \item по выходу за пределы новой погрешности, если погрешность мала
+              \end{itemize}
+            \item При необходимости обновляем угол между системами
+              \begin{itemize}
+                \item по \textit{Estimate.correctAngle}, если \textit{Estimate.angleAcc} меньше погрешности всех пар и текущей погрешности угла системы 
+                \item по углу $\alpha$, если $\Delta\alpha$ меньше \textit{Estimate.angleAcc} и текущей погрешности угла системы  
+              \end{itemize}
+          \end{enumerate}
+          А так же после каждого получения новой координаты от ARUnit увеличиваем погрешность всех ранее пришедных Estimate на
+          расстояние пройденное с прошлого измерения умноженное на погрешность на метр 
+          $Estimate.posAcc = Estimate.posAcc + Distance(lastPos, newPos) * accByMeter$
+  \section{Надстройки}
+    \subsection{Pos + AR subUnit}
+      \vbox{
+        Задача надстройки --- пробросить события между \textbf{ARUnit} и \textbf{PosUnit}.\\
+        Состоит из двух объектов:
+        \begin{itemize}
+          \item AREstimateGenerator --- отправляет событие OnEstimateAdd при обнаружение метки
+          \item ARToPositionTranslator --- отправляет событие обновления координаты устройства в локальной системе координат 
+        \end{itemize}
+      
+        \begin{center}
+        \begin{tikzpicture}
+          \begin{umlpackage}{AR+POS SubUnit}
+            \begin{umlpackage}{Pos Unit}
+                \umlsimpleclass[x=1cm, width=20ex]{POS Interface}{}
+            \end{umlpackage}
+
+            \begin{umlpackage}{AR Unit}
+                \umlsimpleclass[x=13.5cm, width=20ex]{AR Interface}{}
+            \end{umlpackage}
+  
+            \umlsimpleclass[x=7cm, width=30ex]{AREstimateGenerator}{}
+            \umlsimpleclass[x=7cm, y=-1, width=30ex]{ARToPositionTranslator}{}
+  
+            \umlinherit[geometry=-|-]{AR Interface}{AREstimateGenerator}
+            \umlinherit[geometry=-|-]{AR Interface}{ARToPositionTranslator}
+            \umlinherit[geometry=-|-]{AREstimateGenerator}{POS Interface}
+            \umlinherit[geometry=-|-]{ARToPositionTranslator}{POS Interface}
+        \end{umlpackage}
+        \end{tikzpicture}
+        \end{center}
+      }
+      \subsubsection{ARMapTool}
+        Для корректной работы \textbf{AREstimateGenerator} необхрдимо знать координаты меток в глобальной системе координат, для 
+        этого используется \textbf{ARMapScriptable} настраевыемый с помощью \textbf{ARMapTool}.\\
+        \begin{center}
+          \begin{tikzpicture}
+            \umlclass[]{ARMapScriptable}{imageAnchors : [ARImageTransform]}{}
+            \umlclass[x=7]{ARImageTransform}{name : String\\position : Vector3\\rotation : Quaternion}{}
+            \umlinherit[]{ARImageTransform}{ARMapScriptable}
+          \end{tikzpicture}
+        \end{center}  
+
+      \subsubsection{Использование}
+        Для работы проброски ивентов перетащить префабы \textbf{AREstimateGenerator} и \textbf{ARToPositionTranslator}
+        на сцену.
+        \paragraph{Создание ARMapScriptable}
+          \begin{enumerate}
+            \item Создать в проекте ARMapScriptable.
+            \item Создать на сцене GameObject и добавить на него компонент \textbf{ARMapTool}
+            \item Указать в TargetScriptable объект созданный в первом пункте
+            \item Перетащить нужное количество префабов \textbf{A4 Target} на сцену дочерним к ARMapTool
+            \item Назначить им названия и координаты на сцене
+            \item На объекте ARMapTool нажать кнопку \textbf{Set Anchors}
+          \end{enumerate}
+
+
+    \subsection{Pos + GPS + AR subUnit}
+      Задача надстройки --- пробросить события между \textbf{GPSUnit} и \textbf{PosUnit} для этого используется 
+      \textbf{AREstimateGenerator}
+      \begin{center}
+          \begin{tikzpicture}
+            \begin{umlpackage}{Pos + GPS + AR subUnit}
+              \begin{umlpackage}{Pos Unit}
+                  \umlsimpleclass[x=1cm, width=20ex]{POS Interface}{}
+              \end{umlpackage}
+
+              \begin{umlpackage}{GPS Unit}
+                  \umlsimpleclass[x=13.5cm, width=20ex]{GPS Interface}{}
+              \end{umlpackage}
+              \umlsimpleclass[x=7cm, width=30ex]{GPSEstimateGenerator}{}
+              \umlsimpleclass[x=7, y=-1, fill=none, width=30ex]{Pos + AR subUnit}{}
+
+
+              \umlinherit[geometry=-|-]{Pos + AR subUnit}{POS Interface}
+              \umlinherit[geometry=-|-]{GPS Interface}{GPSEstimateGenerator}
+              \umlinherit[geometry=-|-]{GPSEstimateGenerator}{POS Interface}
+            \end{umlpackage}
+          \end{tikzpicture}
+      \end{center}
+      \subsubsection{GPSMapTool}
+        Для корректной работы \textbf{GPSEstimateGenerator} необхрдимо знать свзязку между глобальной и геодезической системами координат, для 
+        этого используется \textbf{GPSMapScriptable} настраевыемый с помощью \textbf{GPSMapTool}.  
+        \begin{center}
+          \begin{tikzpicture}
+            \umlclass[]{GPSMapScriptable}{latitude : float \\ longitude : float \\ altitude : float \\ 
+            localPos : Vector3 \\ width : float \\ height : float \\ filter : Texture2D}{}
+          \end{tikzpicture}
+        \end{center}
+        \begin{itemize}
+          \item latitude --- широта
+          \item longitude --- долгота
+          \item altitude --- высота
+          \item localPos --- координата в локальной системе
+          \item width --- ширина карты в метрах
+          \item height --- высота карты в метрах
+          \item filter --- фильтр погрешности GPS, картинка в красный канал которой, записан коэффициент умножения текущей погрешности
+        \end{itemize}
+      \subsubsection{Использование}
+        Для работы проброски ивентов перетащить префаб \textbf{GPSEstimateGenerator} на сцену.
+        \paragraph{Создание GPSMapScriptable}
+          \begin{enumerate}
+            \item Создать в проекте GPSMapScriptable.
+            \item Перетащить на сцену префаб GPSMapTool
+            \item Изменить спрайт карты на свой
+            \item Указать в TargetScriptable объект созданный в первом пункте
+            \item Указать в инспекторе координаты PivotMain и PivotScale
+            \item Объекты PivotMain и PivotScale установть на сцене в нужные координаты по спрайту карты 
+            \item Нажать кнопку \textbf{Set size} для масштабирования карты и приведения её глобального размера к геодезическому
+            \item Нажать кнопку \textbf{Set map} для записи в GPSMapScriptable
+          \end{enumerate}
+
+
+
+
+
+
+
+
+\end{document}
