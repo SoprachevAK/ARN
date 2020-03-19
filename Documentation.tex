@@ -1,5 +1,5 @@
 \documentclass[a4paper, 11pt, titlepage]{article}
-\providecommand{\versionnumber}{0.2.1}
+\providecommand{\versionnumber}{0.2.2}
 
 \usepackage{amssymb}
 \usepackage{floatrow}
@@ -55,7 +55,7 @@
 
 \part{Основное описание проекта}
   \textbf{AR Navigation} проект демонстрирует возможности бесшовной навигации в дополненной реальности. \\
-  Проект создан в движке Unity3D.\\
+  Проект создан в игровом движке Unity3D.\\
   Общую систему можно разделить на несколько подзадач:
   \begin{itemize}
     \item Интерфейс
@@ -65,26 +65,8 @@
   Интерфейс и поиск пути являютя достаточно тривиальными задачами, по этому остановимся на рассмотрение алгоритма 
   позиционирования.
 
-
-  %\begin{center}
-  %  \begin{tikzpicture}
-  %    \begin{umlpackage}{ARN}
-  %      \umlclass[]{AR Unit}{}{}
-  %      \umlclass[x=3]{POS Unit}{}{}
-  %      \umlclass[x=6]{GPS Unit}{}{}
-  %      \umlclass[x=1.5, y=-2]{POS + AR SubUnit}{}{}
-  %      \umlclass[x=3, y=-4]{POS + AR + GPS SubUnit}{}{}
-%
-  %      \umlinherit[]{AR Unit}{POS + AR SubUnit}
-  %      \umlinherit[]{POS Unit}{POS + AR SubUnit}
-  %      \umlinherit[]{POS + AR SubUnit}{POS + AR + GPS SubUnit}
-  %      \umlinherit[]{GPS Unit}{POS + AR + GPS SubUnit}
-  %    \end{umlpackage}
-  %  \end{tikzpicture}
-  %\end{center}
-
   \section{Система Event}
-  Вся внутренняя система разделена на модули, которые общаются между друг другом с помощью Event'ов.\\
+  Вся внутренняя система разделена на модули, которые общаются между собой с помощью Event'ов.\\
   Создаются \textit{static} классы в которых определены делегаты, инвенты и функции их вызывающие.
 
   \lstset{style=sharpc}
@@ -96,25 +78,26 @@
 
 \part{Деление на модули}
   \section{Вступление}
-    Работа приложения разделена на несколько функциональных модулей, некоторые из которых являютя независимыми, а остальные -- надстройками.\\
-    Независимые:
-    \begin{itemize}
-    \item AR Unit --- модуль дополненной реальности, прослойка между нативными плагинами и общей системы
-    \item GPS Unit --- модуль позиционирования по GPS
-    \item Pos Unit --- модуль решающий задачу перевода координат из локальной в глобальную системы координат
-    \end{itemize}
-    Надстройки:
-    \begin{itemize}
-    \item Pos + AR SubUnit --- надстройка над \textbf{Pos Unit} и \textbf{AR Unit} для проброски ивентов между ними
-    \item Pos + GPS + AR SubUnit --- надстройка над \textbf{Pos + AR SubUnit} и \textbf{GPS Unit} для проброски ивентов между ними
-    \end{itemize}
+    \vbox{
+      Работа приложения разделена на независимые функциональные модули и надстройки к ним.\\
+      Независимые:
+      \begin{itemize}
+        \item AR Unit --- модуль дополненной реальности, прослойка между нативными плагинами и общей системы
+        \item GPS Unit --- модуль позиционирования по GPS
+        \item Pos Unit --- модуль решающий задачу перевода координат из локальной в глобальную системы координат
+      \end{itemize}
+      Надстройки:
+      \begin{itemize}
+        \item Pos + AR SubUnit --- надстройка над \textbf{Pos Unit} и \textbf{AR Unit} для проброски ивентов между ними
+        \item Pos + GPS + AR SubUnit --- надстройка над \textbf{Pos + AR SubUnit} и \textbf{GPS Unit} для проброски ивентов между ними
+      \end{itemize}
 
-    \begin{center}
-    \begin{tikzpicture}
-      \begin{umlpackage}{ARN}
+      \begin{center}
+      \begin{tikzpicture}
+        \begin{umlpackage}{ARN}
 
-        \begin{umlpackage}{AR+POS+GPS SubUnit}
-          \begin{umlpackage}{AR+POS SubUnit}
+          \begin{umlpackage}{AR+POS+GPS SubUnit}
+            \begin{umlpackage}{AR+POS SubUnit}
             \begin{umlpackage}{Pos Unit}
               \umlsimpleclass[x=1cm, width=20ex]{POS Interface}{}
               \umlsimpleclass[x=1cm, y=-1.5, width=20ex]{POS Controller}{}
@@ -132,33 +115,32 @@
 
             \umlinherit[]{AREstimateGenerator}{POS Interface}
             \umlinherit[geometry=-|-]{ARToPositionTranslator}{POS Interface}
-          \end{umlpackage}
-          \begin{umlpackage}{GPS Unit}
-            \umlsimpleclass[x=13cm, y=-4, width=20ex]{GPS Interface}{}
-            \umlsimpleclass[x=13cm, y=-5.5, width=20ex]{GPS Tracker}{}
-            \umlinherit[]{GPS Tracker}{GPS Interface}
+            \end{umlpackage}
+            \begin{umlpackage}{GPS Unit}
+              \umlsimpleclass[x=13cm, y=-4, width=20ex]{GPS Interface}{}
+              \umlsimpleclass[x=13cm, y=-5.5, width=20ex]{GPS Tracker}{}
+              \umlinherit[]{GPS Tracker}{GPS Interface}
+            \end{umlpackage}
+
+            \umlsimpleclass[x=7cm, y=-3, width=30ex]{GPSEstimateGenerator}{}
+            \umlinherit[geometry=-|-]{GPSEstimateGenerator}{POS Interface}
           \end{umlpackage}
 
-          \umlsimpleclass[x=7cm, y=-3, width=30ex]{GPSEstimateGenerator}{}
-          \umlinherit[geometry=-|-]{GPSEstimateGenerator}{POS Interface}
+          \umlinherit[geometry=-|-]{AR Interface}{AREstimateGenerator}
+          \umlinherit[geometry=-|-]{AR Interface}{ARToPositionTranslator}
+          \umlinherit[geometry=-|-]{GPS Interface}{GPSEstimateGenerator}
         \end{umlpackage}
-
-        \umlinherit[geometry=-|-]{AR Interface}{AREstimateGenerator}
-        \umlinherit[geometry=-|-]{AR Interface}{ARToPositionTranslator}
-        \umlinherit[geometry=-|-]{GPS Interface}{GPSEstimateGenerator}
-      \end{umlpackage}
-    \end{tikzpicture}
-    \end{center}
-
+      \end{tikzpicture}
+      \end{center}
+    }
   \section{Независимые модули}
     \subsection{AR Unit}
       Задача AR Unit --- предоставить приложению уровень абстракции над ARKit и ARCore плагинами Unity. \\
-      Является независимым модулем. \\
-      Модуль реализован на системе Events и предоставляет в использование \textbf{ARInterface} \\
-      Для работы модуля на сцене необходим префаб \textbf{ARStarter} с дочерними \textbf{ARKitTracker} и 
-      \textbf{ARCoreTracker}. \\
-      При запуске сцены \textbf{ARStarter} активирует "Tracker" соответствующий текущей платформе (ios --- ARKitTracker, android --- ARCoreTracker).\\
-      Tracker выполняет функцию проброски api между нативным Unity Plugin'ом и ARInterface. \\
+      Модуль реализован с использованием системы \textbf{Event} и предоставляет в использование \textbf{ARInterface} \\
+      Для работы модуля на сцене необходим префаб \textbf{ARStarter} с дочерними \textit{ARKitTracker} и 
+      \textit{ARCoreTracker}. \\
+      При запуске сцены \textbf{ARStarter} активирует "Tracker"\ соответствующий текущей платформе (iOS ---  ARKitTracker, Android --- ARCoreTracker).\\
+      \textbf{Tracker} выполняет функцию проброски API между Unity Plugin'ом и ARInterface. \\
       На объекте Tracker выполняются настройки для запуска AR сессии конкретной платформы.
 
       \begin{center}
@@ -232,9 +214,9 @@
         \end{itemize}
 
       \subsubsection{Эмуляция AR сессии}
-        AR Unit предоствыляет объекты для полной эмуляции всех событий AR сесии.\\
-        Все необходимые файлы находятся в Assets/Units/ARUnit/Fake все дальнейшие пути указаны относительно этой директории.\\
-        Для полной эмуляции перетащить в сцену Prefabs/FAKE\_AR. Его дочерние объекты определяют поведение симуляции.
+        \textbf{AR Unit} предоствыляет объекты для полной эмуляции всех событий AR сессии.\\
+        Все необходимые файлы находятся в \textit{Assets/Units/ARUnit/Fake} все дальнейшие пути указаны относительно этой директории.\\
+        Для полной эмуляции перетащить в сцену \textit{Prefabs/FAKE\_AR}. Его дочерние объекты определяют поведение симуляции.
         \begin{itemize}
           \item FakeARMain --- отвечает за эмуляуию статусоы сесии
           \item Camera position AR generator --- отвечает за эмуляуию положения камеры в пространстве
@@ -244,14 +226,14 @@
       \paragraph{AREventRecorder}
         Объект позволяющий записать и сохранить в файл все события происходящие во время AR сесии, а после 
         этот файл воспроизводить.
-        Для использования добавить на сцену Prefabs/SessionRecorder.
+        Для использования добавить на сцену \textit{Prefabs/SessionRecorder}.
 
       \subsubsection{Алгоритм создания AR сцены в Unity}
-        Все необходимые файлы находятся в Assets/Units/ARUnit все дальнейшие пути указаны относительно этой директории.
+        Все необходимые файлы находятся в \textit{Assets/Units/ARUnit} все дальнейшие пути указаны относительно этой директории.
         \begin{enumerate}
           \item Создание сцены:
             \begin{enumerate}
-              \item Перетащить на сцену префаб /Prefabs/ARUnit
+              \item Перетащить на сцену префаб \textit{/Prefabs/ARUnit}
               \item При необходимости отключить объект ARFloorCalculate отвечающий за рассчёт уровня пола
               \item На основную камеру добавить скрипт ARCamMoover и указать эту камеру в настройках ARKitTracker и ARCoreTracker
             \end{enumerate}
@@ -259,32 +241,32 @@
               \begin{enumerate}
                 \item IOS
                 \begin{enumerate}
-                  \item Создать в проекте UnityARKitPlugin/ARReferensImagesSet и перетащить его на ARKitTracker в соотвтетсвующие поле
-                  \item Создать в проекте UnityARKitPlugin/ARReferensImage для каждой желаемой метки, и указать ей текстуру и физический размер (ширину). \\
+                  \item Создать в проекте \textit{UnityARKitPlugin/ARReferensImagesSet} и перетащить его на ARKitTracker в соотвтетсвующие поле
+                  \item Создать в проекте \textit{UnityARKitPlugin/ARReferensImage} для каждой желаемой метки, и указать ей текстуру и физический размер (ширину). \\
                     Заполнить ими созданный ReferensImagesSet.
                   \item На объект трекинга добавить скрипт ARImageMover и в его имя указать имя метки
                 \end{enumerate}
                 \item Android
                   \begin{enumerate}
-                  \item Создать в проекте GoogleARCore/SessionConfig и перетащить его на ARCoreTracker в соотвтетсвующие поле
+                  \item Создать в проекте \textit{GoogleARCore/SessionConfig} и перетащить его на ARCoreTracker в соотвтетсвующие поле
                   \item В проекте выделить необходимые метки и создать GoogleARCore/AugmentedDataBase. \\
                     Перетащить получившийся объект на созданный SessionConfig.
                   \item На объект трекинга добавить скрипт ARImageMover и в его имя указать имя метки
                 \end{enumerate}
               \end{enumerate}
             \item Запуск \\
-            Вызвать функцию ARInterface.StartARSession() из UI или другого скрипта. После инициализации ARInterface.ARStatus 
-            перейдёт в состояние Running и сессия будет успешно запущена.
+              Вызвать функцию \textbf{ARInterface.StartARSession()} из UI или другого скрипта. После инициализации ARInterface.ARStatus 
+              перейдёт в состояние Running и сессия будет успешно запущена.
             \item Остановка \\
-            Для остановки сессии вызвать функцию ARInterface.StopARSession()
+              Для остановки сессии вызвать функцию \textbf{ARInterface.StopARSession()}
         \end{enumerate}
       
       \subsubsection{Пример AR сцены}
-        Пример сцены расположен в Assets/Units/ARUnit/Example/FullARUnitExample в нём реализованы все возможности ARUnit
+        Пример сцены расположен в \textit{Assets/Units/ARUnit/Example/FullARUnitExample} в нём реализованы все возможности \textbf{ARUnit}
 
     \subsection{GPS Unit}
-      Задача GPS Unit предоставить уровень абстракции над location servise.\\
-      Модуль реализован на системе Events и предоставляет в использование GPSInterface.\\
+      Задача \textbf{GPS Unit} предоставить уровень абстракции над Location Servise.\\
+      Модуль реализован с использование системы \textbf{Event} и предоставляет в использование GPSInterface.\\
       Для работы модуля на сцене необходим префаб GPSTracker.
     \subsubsection{GPSInterface}
       Разделён на две логические части --- делегаты состояний и функции их вызывающие. \\
@@ -301,21 +283,21 @@
       \end{itemize}
 
     \subsubsection{Алгоритм создания GPS сцены в Unity}
-      Все необходимые файлы находятся в Assets/Units/GPSUnit все дальнейшие пути указаны относительно этой директории.
+      Все необходимые файлы находятся в \textit{Assets/Units/GPSUnit} все дальнейшие пути указаны относительно этой директории.
       \begin{enumerate}
         \item Создание сцены \\
-        Перетащить на сцену префаб /Prefabs/GPSTracker
+          Перетащить на сцену префаб \textit{/Prefabs/GPSTracker}
         \item Запсук \\
-        Вызвать функцию GPSInterface.StartGPS() для отслеживания позиционирования и GPSInterface.OnStartCompass() для отслеживания
-        азимута
+          Вызвать функцию \textbf{GPSInterface.StartGPS()} для отслеживания позиционирования и \textbf{GPSInterface.OnStartCompass()} для отслеживания
+          азимута
         \item Отслеживание \\
-        Подписаться на события GPSInterface.OnGPSUpdate и GPSInterface.OnGPSCompassUpdate
+          Подписаться на события GPSInterface.OnGPSUpdate и GPSInterface.OnGPSCompassUpdate
         \item Выключение \\
-        Вызвать функуию GPSInterface.StopGPS() и GPSInterface.StopCompass()
+          Вызвать функуию \textbf{GPSInterface.StopGPS()} и \textbf{GPSInterface.StopCompass()}
       \end{enumerate}
 
     \subsubsection{Пример GPS сцены}
-      Пример сцены расположен в Assets/Units/GPSUnit/Example/FullGPSUnitExample в нём реализованы все возможности GPSUnit
+      Пример сцены расположен в \textit{Assets/Units/GPSUnit/Example/FullGPSUnitExample} в нём реализованы все возможности \textbf{GPSUnit}.
 
     \subsection{POS Unit}
       \subsubsection{Задача позиционирования}
@@ -403,13 +385,13 @@
         \begin{itemize}
             \item localPos --- координата точки в локальной системе координат
             \item globalPos --- коорбината этой же точки в глобальной системе коордиант
-            \item correctAngle --- предполагаемый угол коррекции между для приведения одной системы координат к другй (в градусах) 
+            \item correctAngle --- предполагаемый угол коррекции между для приведения одной системы координат к другой (в градусах) 
             \item angleAcc --- погрешность угла коррекции (в градусах)
             \item posAcc --- погрешность определения соответствюущих точек 
         \end{itemize}
 
-        Получть \textbf{Estimate} монжно разными путями, например перевести показания GPS в глобальную систмеу коордиан и записать в \textbf{globalPos},
-        а текущую коорбинату ARUnit записат в \textbf{localPos}. 
+        Получть \textbf{Estimate} монжно разными путями, например перевести показания GPS в глобальную систмеу коордиан и записать в \textit{globalPos},
+        а текущую коорбинату ARUnit записат в \textit{localPos}. 
 
         
         \subsubsection{Вычисление вектора линейного сдвига}
@@ -488,7 +470,7 @@
           Погрешность может возникнуть как в исходных данных, так и накопиться со временем.
           \begin{itemize}
              \item Погрешность исходных данных появляется при неточности соответствия точки в локальных и глобальных координатах,
-             например в случае с GPS, точной координате localPos, соответствует координата GPS с погрешностью, то есть localPos
+             например в случае с GPS, точной координате \textit{localPos}, соответствует координата GPS с погрешностью, то есть \textit{localPos}
              может быть удалена от координаты GPS на некую велечину погрешности $\varepsilon$ 
              \begin{figure}[H]
               \centering
@@ -504,7 +486,7 @@
              \item Накопительная погрешность. Для определения координаты в пространстве ARUnit интегрирует показания акселерометра
              в этом расчёте появляется погрешность зависящая от пройденного расстояния и пользовательского устройства. 
              Например на iPhone10 такая погрешность составляет 5 см на 1 метр, что означает, что с каждым пройденным метом 
-             координата полученная из ARUnit "ошибается" на 5 см.
+             координата полученная из ARUnit "ошибается"\ на 5 см.
              \begin{figure}[H]
               \centering
               \begin{tikzpicture}[scale=1]
@@ -529,9 +511,9 @@
               \caption{Накопительная погрешность. Относительный переход}
              \end{figure}
           \end{itemize}
-          Благодаря относительности систем координат, увеличение погрешности $localPos$ относительно центра можно 
-          интерпритировать как увеличение погрешности центра относительно координаты. А значит можно свести обе погрешности к одному.
-          Для этого следует увеличивать погрешность всех ранее полученных Estimat'ов с изменением $localPos$
+          Благодаря относительности систем координат, увеличение погрешности \textit{localPos} относительно центра можно 
+          интерпритировать как увеличение погрешности центра относительно координаты. А значит можно свести обе погрешности к одному случаю.
+          Для этого следует увеличивать погрешность всех ранее полученных Estimat'ов с изменением \textit{localPos}
 
           \begin{figure}[H]
             \centering
@@ -562,15 +544,15 @@
             \caption{Увеличение погрешности с изменением $localPos$}
           \end{figure}
 
-          За эту суммарную погрешность отвечает поле $posAcc$ объекта $Estimate$.
+          За эту суммарную погрешность отвечает поле \textit{posAcc} объекта Estimate.
 
         \subsubsection{Вычисление вектора линейного сдвига с учётом погрешности}
-          Вектор $\vec{d}$ --- разница между localPos и globalPos отдельно взятого Estimate'a, назовём этот estimate --- $pivot$.\\
+          Вектор $\vec{d}$ --- разница между \textit{localPos} и \textit{globalPos} отдельно взятого Estimate'a, назовём этот estimate --- $pivot$.\\
           На вход поступает поток Estimat'ов, а значит для достижения максимальной точности достаточно выбрать Estimate с минимальной 
-          горизонтальной погрешностью (posAcc). Однако, при приближение к пороговому показателю точности Estimate (например для GPS --- минимально
+          горизонтальной погрешностью \textit{(posAcc)}. Однако, при приближение к пороговому показателю точности Estimate (например для GPS --- минимально
           возможная погрешность в текущих условиях) и пересчёте $\vec{d}$ по минимальной погрещности, в позиционирование могут возникать скачки,
-          по этому в целях стабильности целесообразно, при малых погрешностях не производить поиск нового pivot, пока localPos последнего
-          Estimate находится в радиусе погрешности его globalPos.
+          по этому в целях стабильности целесообразно, при малых погрешностях не производить поиск нового \textit{pivot}, пока \textit{localPos} последнего
+          Estimate находится в радиусе погрешности его \textit{globalPos}.
 
           \begin{figure}[H]
             \centering
@@ -635,7 +617,7 @@
           \end{figure}
 
           Имеем два Estimate'a с центрами в точках $E_1$ и $E_2$ и погрещностями $l_1$ и $l_2$ соответственно.\\
-          Рассмотим худший вариант, когда погрешность максимальна, и реальная позиция максимально отдолены от её измерения и находятся в точках $E'_1$ и $E'_2$.
+          Рассмотим худший вариант, когда погрешность максимальна, и реальная позиция максимально отдолены от её измерения то есть находятся в точках $E'_1$ и $E'_2$.
           Такое диаметрально противоположные расположение даёт максимальный угол отклонения $E'_1E'_2$ от $E_1E_2$, а значит и максимальную погрешность при рассчёте $\alpha$.\\
           \begin{gather*}
             E_1E_2 \cap E'_1E'_2 = M\\
@@ -661,7 +643,7 @@
           Запуск алгоритма производится при каждом получение нового Estimate.
           \begin{enumerate}
             \item Получаем новый Estimate и сохраняем его в массив ранее пришедших Estimat'ов
-            \item При необходимости обновляем pivot
+            \item При необходимости обновляем \textit{pivot}
               \begin{itemize}
                 \item по минимальной погрешности, если погрешность велика
                 \item по выходу за пределы новой погрешности, если погрешность мала
@@ -681,7 +663,7 @@
         Задача надстройки --- пробросить события между \textbf{ARUnit} и \textbf{PosUnit}.\\
         Состоит из двух объектов:
         \begin{itemize}
-          \item AREstimateGenerator --- отправляет событие OnEstimateAdd при обнаружение метки
+          \item AREstimateGenerator --- генерирует Estimate при обновление трекинга картинки
           \item ARToPositionTranslator --- отправляет событие обновления координаты устройства в локальной системе координат 
         \end{itemize}
       
@@ -723,10 +705,10 @@
         на сцену.
         \paragraph{Создание ARMapScriptable}
           \begin{enumerate}
-            \item Создать в проекте ARMapScriptable.
+            \item Создать в проекте \textbf{ARMapScriptable}
             \item Создать на сцене GameObject и добавить на него компонент \textbf{ARMapTool}
-            \item Указать в TargetScriptable объект созданный в первом пункте
-            \item Перетащить нужное количество префабов \textbf{A4 Target} на сцену дочерним к ARMapTool
+            \item Указать в \textit{TargetScriptable} объект созданный в первом пункте
+            \item Перетащить нужное количество префабов \textbf{A4 Target} на сцену дочерним к \textbf{ARMapTool}
             \item Назначить им названия и координаты на сцене
             \item На объекте ARMapTool нажать кнопку \textbf{Set Anchors}
           \end{enumerate}
@@ -777,21 +759,15 @@
         Для работы проброски ивентов перетащить префаб \textbf{GPSEstimateGenerator} на сцену.
         \paragraph{Создание GPSMapScriptable}
           \begin{enumerate}
-            \item Создать в проекте GPSMapScriptable.
-            \item Перетащить на сцену префаб GPSMapTool
+            \item Создать в проекте \textbf{GPSMapScriptable}
+            \item Перетащить на сцену префаб \textbf{GPSMapTool}
             \item Изменить спрайт карты на свой
-            \item Указать в TargetScriptable объект созданный в первом пункте
-            \item Указать в инспекторе координаты PivotMain и PivotScale
-            \item Объекты PivotMain и PivotScale установть на сцене в нужные координаты по спрайту карты 
+            \item Указать в \textit{TargetScriptable} объект созданный в первом пункте
+            \item Указать в инспекторе координаты \textit{PivotMain} и \textit{PivotScale}
+            \item Объекты \textit{PivotMain} и \textit{PivotScale} установть на сцене в нужные координаты по спрайту карты 
             \item Нажать кнопку \textbf{Set size} для масштабирования карты и приведения её глобального размера к геодезическому
             \item Нажать кнопку \textbf{Set map} для записи в GPSMapScriptable
           \end{enumerate}
-
-
-
-
-
-
 
 
 \end{document}
