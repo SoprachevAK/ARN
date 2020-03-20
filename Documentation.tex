@@ -1,5 +1,5 @@
 \documentclass[a4paper, 11pt, titlepage]{article}
-\providecommand{\versionnumber}{0.2.3}
+\providecommand{\versionnumber}{0.2.4}
 
 \usepackage{amssymb}
 \usepackage{floatrow}
@@ -98,8 +98,8 @@
           \begin{umlpackage}{AR+POS+GPS SubUnit}
             \begin{umlpackage}{AR+POS SubUnit}
             \begin{umlpackage}{Pos Unit}
-              \umlsimpleclass[x=1cm, width=20ex]{POS Interface}{}
-              \umlsimpleclass[x=1cm, y=-1.5, width=20ex]{POS Controller}{}
+              \umlsimpleclass[x=1.6cm, width=20ex]{POS Interface}{}
+              \umlsimpleclass[x=1.6cm, y=-1.5, width=20ex]{POS Controller}{}
               \umlinherit[]{POS Interface}{POS Controller}
             \end{umlpackage}
 
@@ -109,8 +109,8 @@
               \umlinherit[]{AR Starter}{AR Interface}
             \end{umlpackage}
 
-            \umlsimpleclass[x=7cm, width=30ex]{AREstimateGenerator}{}
-            \umlsimpleclass[x=7cm, y=-1, width=30ex]{ARToPositionTranslator}{}
+            \umlsimpleclass[x=7.3cm, width=30ex]{AREstimateGenerator}{}
+            \umlsimpleclass[x=7.3cm, y=-1, width=30ex]{ARToPositionTranslator}{}
 
             \umlinherit[]{AREstimateGenerator}{POS Interface}
             \umlinherit[geometry=-|-]{ARToPositionTranslator}{POS Interface}
@@ -121,7 +121,7 @@
               \umlinherit[]{GPS Tracker}{GPS Interface}
             \end{umlpackage}
 
-            \umlsimpleclass[x=7cm, y=-3, width=30ex]{GPSEstimateGenerator}{}
+            \umlsimpleclass[x=7.3cm, y=-3, width=30ex]{GPSEstimateGenerator}{}
             \umlinherit[geometry=-|-]{GPSEstimateGenerator}{POS Interface}
           \end{umlpackage}
 
@@ -134,7 +134,7 @@
     }
   \section{Независимые модули}
     \subsection{AR Unit}
-      Задача AR Unit --- предоставить приложению уровень абстракции над ARKit и ARCore плагинами Unity. \\
+      Задача AR Unit --- предоставить приложению уровень абстракции над ARKit и ARCore плагинами Unity.\\
       Модуль реализован с использованием системы \textbf{Event} и предоставляет в использование \textbf{ARInterface}. \\
       Для работы модуля на сцене необходим префаб \textbf{ARStarter} с дочерними \textit{ARKitTracker} и 
       \textit{ARCoreTracker}. \\
@@ -153,10 +153,10 @@
             \umlsimpleclass[x=10cm, y=-4]{ARCore Native}{}
 
             \begin{umlpackage}{Moover}
-              \umlsimpleclass[x=-3, y=-3, width=25ex]{ARCamMoover}{}
-              \umlsimpleclass[x=-3, y=-4, width=25ex]{ARImageMoover}{}
+              \umlsimpleclass[x=-2, y=-3, width=25ex]{ARCamMoover}{}
+              \umlsimpleclass[x=-2, y=-4, width=25ex]{ARImageMoover}{}
             \end{umlpackage}
-            \umlsimpleclass[x=1.5, y=-3]{FloorLevel}{}
+            \umlsimpleclass[x=2, y=-3]{FloorLevel}{}
           \end{umlpackage}
 
           \umlinherit[geometry=|-|]{AR Interface}{Moover}
